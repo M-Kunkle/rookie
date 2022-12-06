@@ -1,0 +1,2 @@
+# rookie
+ chess playing robot
