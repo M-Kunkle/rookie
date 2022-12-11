@@ -60,8 +60,6 @@ void setup() {
   digitalWrite(reset93, LOW);
   attachInterrupt(digitalPinToInterrupt(killswitch), kill, CHANGE); // If killswitch is triggered, kill() is called
 
-
-
 }
 
 void loop() {

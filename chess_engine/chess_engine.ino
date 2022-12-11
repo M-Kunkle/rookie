@@ -1,0 +1,125 @@
+// Credit to maksimKorzh for the Bit Board Chess engine he made in C
+// I followed his guide and videos and made the necessary Arduino adjustments
+// https://github.com/maksimKorzh/chess_programming/tree/master/src/bbc
+
+#define U64 unsigned long long
+
+// Macros for bit manipulation
+#define get_bit(bitboard, square) (bitboard & (1ULL << square))
+#define set_bit(bitboard, square) (bitboard |= (1ULL << square))
+#define pop_bit(bitboard, square) (get_bit(bitboard, square) ? bitboard ^= (1ULL << square) : 0)
+
+U64 pawn_attacks[2][64];
+enum {
+    a8, b8, c8, d8, e8, f8, g8, h8,
+    a7, b7, c7, d7, e7, f7, g7, h7,
+    a6, b6, c6, d6, e6, f6, g6, h6,
+    a5, b5, c5, d5, e5, f5, g5, h5,
+    a4, b4, c4, d4, e4, f4, g4, h4,
+    a3, b3, c3, d3, e3, f3, g3, h3,
+    a2, b2, c2, d2, e2, f2, g2, h2,
+    a1, b1, c1, d1, e1, f1, g1, h1
+};
+
+enum { white, black};
+
+void setup() {
+  Serial.begin(9600);
+}
+
+void loop() {
+
+  init_leapers_attacks();
+  for(int i=0; i<64;i++){
+    printboard(pawn_attacks[white][i]);
+  }
+
+
+  for(;;);
+}
+
+
+
+
+// Print board and board number
+void printboard(U64 bitboard){
+  Serial.println("\n");
+
+  for (int rank=0; rank<8; rank++){
+    for(int file=0; file<8; file++){
+      int square = rank*8 + file;
+
+      if(!file){
+        Serial.print(" ");
+        Serial.print(8-rank);
+        Serial.print("   ");
+      }
+
+      Serial.print(" ");
+      Serial.print(get_bit(bitboard, square) ? 1 : 0);
+      Serial.print(" ");
+    }
+    Serial.println();
+  }
+
+  // Print Files
+  Serial.print("\n      a  b  c  d  e  f  g  h");
+  Serial.print("\n\n BB#: ");
+
+
+  // Print board number
+  // Serial.print does not accept ULL so used workaround
+  char buf[50];
+  if(bitboard > 0xFFFFFFFFLL) {
+    sprintf(buf, "%lX%08lX", (unsigned long)(bitboard>>32), (unsigned long)(bitboard&0xFFFFFFFFULL));
+  } else {
+    sprintf(buf, "%lX", (unsigned long)bitboard);
+  }
+  Serial.print( buf );
+  Serial.print("H\n");
+}
+
+// Attack Tables -----------------------------------------------------
+
+const U64 not_a_file = 18374403900871474942ULL;
+const U64 not_h_file = 9187201950435737471ULL;
+const U64 not_hg_file = 4557430888798830399ULL;
+const U64 not_ab_file = 18229723555195321596ULL;
+
+// Pawns
+
+
+U64 mask_pawn_attacks(int side, int square){
+  U64 attacks = 0ULL;
+  U64 bitboard = 0ULL;
+
+  set_bit(bitboard, square);
+
+  if(!side){
+    // white pawns
+    if((bitboard >> 7) & not_a_file){
+      attacks |= (bitboard >> 7);
+    }
+    if ((bitboard >> 9) & not_h_file){
+      attacks |= (bitboard >> 9);
+    }
+  } else {
+    // black pawns
+    if((bitboard << 7) & not_h_file){
+      attacks |= (bitboard << 7);
+    }
+    if ((bitboard << 9) & not_a_file){
+      attacks |= (bitboard << 9);
+    }
+
+  }
+
+  return attacks;
+}
+
+void init_leapers_attacks(){
+  for (int square=0; square<64; square++){
+    pawn_attacks[white][square] = mask_pawn_attacks(white, square);
+    pawn_attacks[black][square] = mask_pawn_attacks(black, square);
+  }
+}
