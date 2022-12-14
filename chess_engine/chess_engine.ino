@@ -9,6 +9,8 @@
 #define set_bit(bitboard, square) (bitboard |= (1ULL << square))
 #define pop_bit(bitboard, square) (get_bit(bitboard, square) ? bitboard ^= (1ULL << square) : 0)
 
+
+// Attack Tables
 U64 pawn_attacks[2][64];
 U64 knight_attacks[64];
 U64 king_attacks[64];
@@ -54,7 +56,7 @@ void loop() {
 
 
 
-// Print board and board number
+// print board and board number
 void printboard(U64 bitboard){
   Serial.println("\n");
 
@@ -62,6 +64,7 @@ void printboard(U64 bitboard){
     for(int file=0; file<8; file++){
       int square = rank*8 + file;
 
+      // print rank number layout
       if(!file){
         Serial.print(" ");
         Serial.print(8-rank);
@@ -75,12 +78,12 @@ void printboard(U64 bitboard){
     Serial.println();
   }
 
-  // Print Files
+  // print file layout
   Serial.print("\n      a  b  c  d  e  f  g  h");
   Serial.print("\n\n BB#: ");
 
 
-  // Print board number
+  // print board number
   // Serial.print does not accept ULL so used workaround
   char buf[50];
   if(bitboard > 0xFFFFFFFFLL) {
@@ -92,15 +95,13 @@ void printboard(U64 bitboard){
   Serial.print("H\n");
 }
 
-// Attack Tables -----------------------------------------------------
-
+// board constants for proper move generation
 const U64 not_a_file = 18374403900871474942ULL;
 const U64 not_h_file = 9187201950435737471ULL;
 const U64 not_hg_file = 4557430888798830399ULL;
 const U64 not_ab_file = 18229723555195321596ULL;
 
-// Pawns
-
+// pawn attack table generation
 U64 mask_pawn_attacks(int side, int square){
   U64 attacks = 0ULL;
   U64 bitboard = 0ULL;
@@ -129,7 +130,7 @@ U64 mask_pawn_attacks(int side, int square){
   return attacks;
 }
 
-// Knights
+// knight attack table generation
 U64 mask_knight_attacks(int square){
   U64 attacks = 0ULL;
   U64 bitboard = 0ULL;
@@ -164,6 +165,7 @@ U64 mask_knight_attacks(int square){
   return attacks;
 }
 
+// king attack table generation
 U64 mask_king_attacks(int square){
   U64 attacks = 0ULL;
   U64 bitboard = 0ULL;
@@ -194,6 +196,7 @@ U64 mask_king_attacks(int square){
   return attacks;
 }
 
+// bishop attack table generation (without edges)
 U64 mask_bishop_attacks(int square){
   U64 attacks = 0ULL;
   int r, f; // rank, file
@@ -216,6 +219,7 @@ U64 mask_bishop_attacks(int square){
   return attacks;
 }
 
+// rook attack table generation (without edges)
 U64 mask_rook_attacks(int square){
   U64 attacks = 0ULL;
   int r, f; // rank, file
@@ -238,6 +242,7 @@ U64 mask_rook_attacks(int square){
   return attacks;
 }
 
+// bishop attack table with blocked paths accounted for
 U64 bishop_attack_with_block(int square, U64 block){
   U64 attacks = 0ULL;
   int r, f; // rank, file
@@ -272,6 +277,7 @@ U64 bishop_attack_with_block(int square, U64 block){
   return attacks;
 }
 
+// rook attack table with blocked paths accounted for
 U64 rook_attack_with_block(int square, U64 block){
   U64 attacks = 0ULL;
   int r, f; // rank, file
@@ -306,6 +312,7 @@ U64 rook_attack_with_block(int square, U64 block){
   return attacks;
 }
 
+// actually generate the tables
 void init_leapers_attacks(){
   for (int square=0; square<64; square++){
     pawn_attacks[white][square] = mask_pawn_attacks(white, square);
