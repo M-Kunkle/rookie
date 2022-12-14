@@ -10,6 +10,10 @@
 #define pop_bit(bitboard, square) (get_bit(bitboard, square) ? bitboard ^= (1ULL << square) : 0)
 
 U64 pawn_attacks[2][64];
+U64 knight_attacks[64];
+U64 king_attacks[64];
+
+
 enum {
     a8, b8, c8, d8, e8, f8, g8, h8,
     a7, b7, c7, d7, e7, f7, g7, h7,
@@ -21,20 +25,20 @@ enum {
     a1, b1, c1, d1, e1, f1, g1, h1
 };
 
-enum { white, black};
+enum {white, black};
 
 void setup() {
   Serial.begin(9600);
+
 }
 
 void loop() {
 
   init_leapers_attacks();
+  
   for(int i=0; i<64;i++){
-    printboard(pawn_attacks[white][i]);
+    printboard(mask_rook_attacks(i));
   }
-
-
   for(;;);
 }
 
@@ -88,7 +92,6 @@ const U64 not_ab_file = 18229723555195321596ULL;
 
 // Pawns
 
-
 U64 mask_pawn_attacks(int side, int square){
   U64 attacks = 0ULL;
   U64 bitboard = 0ULL;
@@ -117,9 +120,120 @@ U64 mask_pawn_attacks(int side, int square){
   return attacks;
 }
 
+// Knights
+U64 mask_knight_attacks(int square){
+  U64 attacks = 0ULL;
+  U64 bitboard = 0ULL;
+
+  set_bit(bitboard, square);
+
+  if((bitboard >> 17) & not_h_file){
+    attacks |= (bitboard >> 17);
+  }
+  if((bitboard >> 15) & not_a_file){
+    attacks |= (bitboard >> 15);
+  }
+  if((bitboard >> 10) & not_hg_file){
+    attacks |= (bitboard >> 10);
+  }
+  if((bitboard >> 6) & not_ab_file){
+    attacks |= (bitboard >> 6);
+  }
+
+  if((bitboard << 17) & not_a_file){
+    attacks |= (bitboard << 17);
+  }
+  if((bitboard << 15) & not_h_file){
+    attacks |= (bitboard << 15);
+  }
+  if((bitboard << 10) & not_ab_file){
+    attacks |= (bitboard << 10);
+  }
+  if((bitboard << 6) & not_hg_file){
+    attacks |= (bitboard << 6);
+  }
+  return attacks;
+}
+
+U64 mask_king_attacks(int square){
+  U64 attacks = 0ULL;
+  U64 bitboard = 0ULL;
+
+  set_bit(bitboard, square);
+
+  if((bitboard >> 1) & not_h_file){
+    attacks |= (bitboard >> 1);
+  }
+  if((bitboard << 1) & not_a_file){
+    attacks |= (bitboard<< 1);
+  }
+  if((bitboard >> 7) & not_a_file){
+    attacks |= (bitboard >> 7);
+  }
+  if((bitboard >> 9) & not_h_file){
+    attacks |= (bitboard >> 9);
+  }
+  if((bitboard << 7) & not_h_file){
+    attacks |= (bitboard << 7);
+  }
+  if((bitboard << 9) & not_a_file){
+    attacks |= (bitboard << 9);
+  }
+  attacks |= (bitboard >> 8);
+  attacks |= (bitboard << 8);
+
+  return attacks;
+}
+
+U64 mask_bishop_attacks(int square){
+  U64 attacks = 0ULL;
+  int r, f; // rank, file
+  int tr = square / 8; // target rank
+  int tf = square % 8; // target file
+
+  for (r = tr + 1, f = tf+1; r <= 6 && f <= 6; r++, f++){
+    attacks |= (1ULL << (r * 8 + f));
+  }
+  for (r = tr - 1, f = tf+1; r >= 1 && f <= 6; r--, f++){
+    attacks |= (1ULL << (r * 8 + f));
+  }
+  for (r = tr + 1, f = tf-1; f >= 1 && r <= 6; r++, f--){
+    attacks |= (1ULL << (r * 8 + f));
+  }
+  for (r = tr - 1, f = tf-1; f >= 1 && r >= 1; r--, f--){
+    attacks |= (1ULL << (r * 8 + f));
+  }
+
+  return attacks;
+}
+
+U64 mask_rook_attacks(int square){
+  U64 attacks = 0ULL;
+  int r, f; // rank, file
+  int tr = square / 8; // target rank
+  int tf = square % 8; // target file
+
+  for(r = tr + 1; r <= 6; r++){
+    attacks |= (1ULL << (r * 8 + tf));
+  }
+  for(r = tr - 1; r >= 1; r--){
+    attacks |= (1ULL << (r * 8 + tf));
+  }
+  for(f = tf + 1; f <= 6; f++){
+    attacks |= (1ULL << (tr * 8 + f));
+  }
+  for(f = tf - 1; f >= 1; f--){
+    attacks |= (1ULL << (tr * 8 + f));
+  }
+  
+  return attacks;
+}
+
 void init_leapers_attacks(){
   for (int square=0; square<64; square++){
     pawn_attacks[white][square] = mask_pawn_attacks(white, square);
     pawn_attacks[black][square] = mask_pawn_attacks(black, square);
+    knight_attacks[square] = mask_knight_attacks(square);
+    king_attacks[square] = mask_king_attacks(square);
   }
 }
