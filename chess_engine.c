@@ -56,26 +56,6 @@ const char *square_to_coord[] = {
 
 enum {white, black};
 
-/*
-void setup(){
-  Serial.begin(9600);
-}
-void loop() {
-
-  init_leapers_attacks();
-
-  U64 attack_mask = mask_rook_attacks(f3);
-  
-  for(int i=0; i<=4096; i++){
-    U64 block = set_occup(i, count_bits(attack_mask), attack_mask);
-    printboard(block);
-  }
-  
-
-  for(;;);
-}
-*/
-
 // print board and board number
 void printboard(U64 bitboard){
   //Serial.println("\n");
