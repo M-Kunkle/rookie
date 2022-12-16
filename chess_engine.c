@@ -22,9 +22,8 @@ U64 rook_attack_with_block(int square, U64 block);
 void init_leapers_attacks();
 int count_bits(U64 bitboard);
 int get_lsb_index(U64 bitboard);
-
 U64 set_occup(int index, int bits_in_mask, U64 attack_mask);
-
+unsigned int random_u32();
 
 // Attack Tables
 U64 pawn_attacks[2][64];
@@ -69,16 +68,38 @@ void printboard(U64 bitboard){
         printf("  %d ", 8 - rank);
       }
 
-      printf(" %d", get_bit(bitboard, square) ? 1 : 0);
+      printf("  %d", get_bit(bitboard, square) ? 1 : 0);
     }
     printf("\n");
   }
 
   // print file layout
-  printf("\n     a b c d e f g h\n\n");
+  printf("\n      a  b  c  d  e  f  g  h\n\n");
   printf("     Bitboard: %llud\n\n", bitboard);
 
 }
+
+const int bishop_relevant_bits[64] = {
+  6,  5,  5,  5,  5,  5,  5,  6,
+  5,  5,  5,  5,  5,  5,  5,  5,
+  5,  5,  7,  7,  7,  7,  5,  5,
+  5,  5,  7,  9,  9,  7,  5,  5,
+  5,  5,  7,  9,  9,  7,  5,  5,
+  5,  5,  7,  7,  7,  7,  5,  5,
+  5,  5,  5,  5,  5,  5,  5,  5,
+  6,  5,  5,  5,  5,  5,  5,  6
+};
+
+const int rook_relevant_bits[64] = {
+  12,  11,  11,  11,  11,  11,  11,  12,
+  11,  10,  10,  10,  10,  10,  10,  11,
+  11,  10,  10,  10,  10,  10,  10,  11,
+  11,  10,  10,  10,  10,  10,  10,  11,
+  11,  10,  10,  10,  10,  10,  10,  11,
+  11,  10,  10,  10,  10,  10,  10,  11,
+  11,  10,  10,  10,  10,  10,  10,  11,
+  12,  11,  11,  11,  11,  11,  11,  12
+};
 
 // board constants for proper move generation
 const U64 not_a_file = 18374403900871474942ULL;   
@@ -319,7 +340,6 @@ int count_bits(U64 bitboard){
   return bitcount;
 }
 
-
 // get least significant bit index
 int get_lsb_index(U64 bitboard){
   int index;
@@ -347,13 +367,45 @@ U64 set_occup(int index, int bits_in_mask, U64 attack_mask){
   return map;
 }
 
+// RANDOM NUMBER GENERATOR --------------------------------
+unsigned int state = 1804289383; // seed 
+
+unsigned int random_u32(){
+  unsigned int x = state;
+  x ^= x << 13;
+  x ^= x >> 17;
+  x ^= x << 5;
+  state = x;
+  return x;
+} 
+
+U64 random_u64(){
+  U64 n1, n2, n3, n4;
+
+  // init random numbers slicing 16 bit from MSB side (MSB side is bottom up)
+  n1 = (U64)(random_u32() & 0xFFFF);
+  n2 = (U64)(random_u32() & 0xFFFF);
+  n3 = (U64)(random_u32() & 0xFFFF);
+  n4 = (U64)(random_u32() & 0xFFFF); 
+
+  return n1 | (n2 << 16) | (n3 << 32) | (n4 << 48);
+}
+
+U64 generate_magic_num(){
+// --------------------------------------------------------
+
+  return random_u64() & random_u64() & random_u64();
+}
+
+
+// MAIN ----------------------------------------------------
+
 int main(){
   init_leapers_attacks();
-
-  U64 attack_mask = mask_rook_attacks(f3);
   
-  for(int i=0; i<=4096; i++){
-    U64 block = set_occup(i, count_bits(attack_mask), attack_mask);
-    printboard(block);
-  }
+  printboard((U64)(random_u32()));
+  printboard((U64)(random_u32()) & 0xFFFF);
+  printboard(random_u64());
+  printboard(generate_magic_num());
+  return 0;
 }
