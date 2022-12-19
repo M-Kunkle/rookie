@@ -6,14 +6,17 @@
 
 #define U64 unsigned long long
 
+// ------------------------------------------
 // macros for bit manipulation
-#define get_bit(bitboard, square) (bitboard & (1ULL << square))
-#define set_bit(bitboard, square) (bitboard |= (1ULL << square))
-#define pop_bit(bitboard, square) (get_bit(bitboard, square) ? bitboard ^= (1ULL << square) : 0)
+// ------------------------------------------
+#define get_bit(bitboard, square) ((bitboard) & (1ULL << (square)))
+#define set_bit(bitboard, square) ((bitboard) |= (1ULL << (square)))
+#define pop_bit(bitboard, square) ((bitboard) &= ~(1ULL << (square)))
 
 // ------------------------------------------
 // function declarations
-void printboard(U64 bitboard);
+// ------------------------------------------
+void printbitboard(U64 bitboard);
 U64 mask_pawn_attacks(int side, int square);
 U64 mask_knight_attacks(int square);
 U64 mask_king_attacks(int square);
@@ -34,12 +37,13 @@ void init_all(void);
 void init_sliders_attacks(int bishop);
 U64 get_rook_attacks(int square, U64 occupancy);
 U64 get_bishop_attacks(int square, U64 occupancy);
-// ------------------------------------------
 
 
-// ------------------------------------------
-//  quality of life variables
-// ------------------------------------------
+// -------------------------------------------
+// chess board and quality of life variables
+// -------------------------------------------
+
+// board squares (no_sq = no square)
 enum {
     a8, b8, c8, d8, e8, f8, g8, h8,
     a7, b7, c7, d7, e7, f7, g7, h7,
@@ -48,9 +52,10 @@ enum {
     a4, b4, c4, d4, e4, f4, g4, h4,
     a3, b3, c3, d3, e3, f3, g3, h3,
     a2, b2, c2, d2, e2, f2, g2, h2,
-    a1, b1, c1, d1, e1, f1, g1, h1
+    a1, b1, c1, d1, e1, f1, g1, h1, no_sq
 };
 
+// coordinates
 const char *square_to_coord[] = {
     "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8",
     "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7",
@@ -62,8 +67,66 @@ const char *square_to_coord[] = {
     "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
 };
 
+// ascii Pieces
+char ascii_pieces[12] = "PNBRQKpnbrqk";
+
+// piece encoding
+enum { P, N, B, R, Q, K, p, n, b, r, q, k };
+
+// unicode pieces
+char *unicode_pieces[12] = {"♙", "♘", "♗", "♖", "♕", "♔", "♟︎", "♞", "♝", "♜", "♛", "♚"}; 
+
+// convert ascii pieces to encoded constants
+int char_pieces[] = {
+  ['P'] = P,
+  ['N'] = N,
+  ['B'] = B,
+  ['R'] = R,
+  ['Q'] = Q,
+  ['K'] = K,
+  ['p'] = p,
+  ['n'] = n,
+  ['b'] = b,
+  ['r'] = r,
+  ['q'] = q,
+  ['k'] = k
+};
+
+// side colors
 enum { white, black };
+
+// qol for bishop/rook attacks
 enum { rook, bishop };
+
+// bitboards, 6 for white, 6 for black
+// 1 for each possible piece type
+U64 bitboards[12];
+
+// white/black/all current occupancies
+U64 occupancies[3];
+
+// side to move 0=white, 1=black
+int side = -1;
+
+// for enpassant moves
+int enpassant = no_sq;
+
+// castling rights binary encoding
+/*
+    bin  dec
+    
+   0001    1  white king can castle to the king side
+   0010    2  white king can castle to the queen side
+   0100    4  black king can castle to the king side
+   1000    8  black king can castle to the queen side
+   examples
+   1111       both sides an castle both directions
+   1001       black king => queen side
+              white king => king side
+*/
+
+int castle;
+enum { wk = 1, wq = 2, bk = 4, bq = 8 };
 
 // -------------------------------------------
 // random numbers
@@ -95,7 +158,7 @@ U64 generate_magic_num(){
   return random_u64() & random_u64() & random_u64();
 }
 
-// ------------------------------------------
+// ------------------------------------------s
 // bit manipulation and board output
 // ------------------------------------------
 
@@ -123,7 +186,7 @@ int get_lsb_index(U64 bitboard){
 }
 
 // print board and board number
-void printboard(U64 bitboard){
+void printbitboard(U64 bitboard){
   //Serial.println("\n");
 
   for (int rank=0; rank<8; rank++){
@@ -144,6 +207,35 @@ void printboard(U64 bitboard){
   printf("\n      a  b  c  d  e  f  g  h\n\n");
   printf("     Bitboard: %llud\n\n", bitboard);
 
+}
+
+void printboard(){
+  for (int rank = 0; rank < 8; rank++){
+    for (int file = 0; file < 8; file++){
+      int square = rank * 8 + file;
+      int piece = -1;
+
+      // print rank number layout
+      if(!file){
+        printf("  %d ", 8 - rank);
+      }
+
+      // loop over piece bitboards to find what piece resides on this square
+      for (int bb_idx = P; bb_idx <= k; bb_idx++){
+        if(get_bit((bitboards[bb_idx]), square)){
+          piece = bb_idx;
+        }
+      }
+
+      // had to do some crazy unicode spacing to make the board look alright in my terminal
+      printf(" %s", (piece == -1) ? "  •" : unicode_pieces[piece]);
+
+
+    }
+    printf("\n");
+  }
+  // print file layout
+  printf("\n      a   b   c   d   e   f   g   h\n\n");
 }
 
 // ----------------------------------------
@@ -673,12 +765,59 @@ void init_all(){
 
 int main(){
   init_all();
+      // set white pawns
+    set_bit(bitboards[P], a2);
+    set_bit(bitboards[P], b2);
+    set_bit(bitboards[P], c2);
+    set_bit(bitboards[P], d2);
+    set_bit(bitboards[P], e2);
+    set_bit(bitboards[P], f2);
+    set_bit(bitboards[P], g2);
+    set_bit(bitboards[P], h2);
+    
+    // set white knights
+    set_bit(bitboards[N], b1);
+    set_bit(bitboards[N], g1);
+    
+    // set white bishops
+    set_bit(bitboards[B], c1);
+    set_bit(bitboards[B], f1);
+    
+    // set white rooks
+    set_bit(bitboards[R], a1);
+    set_bit(bitboards[R], h1);
+    
+    // set white queen & king
+    set_bit(bitboards[Q], d1);
+    set_bit(bitboards[K], e1);
+    
+    // set white pawns
+    set_bit(bitboards[p], a7);
+    set_bit(bitboards[p], b7);
+    set_bit(bitboards[p], c7);
+    set_bit(bitboards[p], d7);
+    set_bit(bitboards[p], e7);
+    set_bit(bitboards[p], f7);
+    set_bit(bitboards[p], g7);
+    set_bit(bitboards[p], h7);
+    
+    // set white knights
+    set_bit(bitboards[n], b8);
+    set_bit(bitboards[n], g8);
+    
+    // set white bishops
+    set_bit(bitboards[b], c8);
+    set_bit(bitboards[b], f8);
+    
+    // set white rooks
+    set_bit(bitboards[r], a8);
+    set_bit(bitboards[r], h8);
+    
+    // set white queen & king
+    set_bit(bitboards[q], d8);
+    set_bit(bitboards[k], e8);
 
-  U64 testboard = 14073749976403968ULL;
-
-  printboard(testboard);
-  printboard(get_rook_attacks(f7, testboard));
-  printboard(get_bishop_attacks(f7, testboard));
+    printboard();
 
   return 0;
 }
