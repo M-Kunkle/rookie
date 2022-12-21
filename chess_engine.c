@@ -210,6 +210,7 @@ void printbitboard(U64 bitboard){
 }
 
 void printboard(){
+  printf("\n");
   for (int rank = 0; rank < 8; rank++){
     for (int file = 0; file < 8; file++){
       int square = rank * 8 + file;
@@ -235,7 +236,12 @@ void printboard(){
     printf("\n");
   }
   // print file layout
-  printf("\n      a   b   c   d   e   f   g   h\n\n");
+  printf("\n      a   b   c   d   e   f   g   h\n");
+  printf("\nSIDE TO MOVE: %s", !side ? "White" : "black");
+  printf("\nAVAILABLE ENPASSANT: %s", enpassant != no_sq ? square_to_coord[enpassant] : "N/A");
+  printf("\nWHITE CASTLING RIGHTS: %s, %s", (castle & wk) ? "Kingside" : "--------", (castle & wq) ? "Queenside" : "--------");
+  printf("\nBLACK CASTLING RIGHTS: %s, %s", (castle & bk) ? "Kingside" : "--------", (castle & bq) ? "Queenside" : "--------");
+  printf("\n\n");
 }
 
 // ----------------------------------------
@@ -817,6 +823,8 @@ int main(){
     set_bit(bitboards[q], d8);
     set_bit(bitboards[k], e8);
 
+    side = white;
+    castle = 0b0110;
     printboard();
 
   return 0;
