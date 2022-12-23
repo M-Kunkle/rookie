@@ -32,8 +32,8 @@ U64 mask_knight_attacks(int square);
 U64 mask_king_attacks(int square);
 U64 mask_bishop_attacks(int square);
 U64 mask_rook_attacks(int square);
-U64 bishop_attack_with_block(int square, U64 block);
-U64 rook_attack_with_block(int square, U64 block);
+U64 mask_bishop_attack_with_block(int square, U64 block);
+U64 mask_rook_attack_with_block(int square, U64 block);
 void init_leapers_attacks(void);
 int count_bits(U64 bitboard);
 int get_lsb_index(U64 bitboard);
@@ -47,6 +47,10 @@ void init_all(void);
 void init_sliders_attacks(int bishop);
 U64 get_rook_attacks(int square, U64 occupancy);
 U64 get_bishop_attacks(int square, U64 occupancy);
+void parse_fen(char *fen);
+U64 get_queen_attacks(int square, U64 occupancy);
+void print_attacked(int side);
+int is_sq_attacked(int square, int side);
 
 
 // -------------------------------------------
@@ -143,6 +147,7 @@ enum { wk = 1, wq = 2, bk = 4, bq = 8 };
 // -------------------------------------------
 unsigned int state = 1804289383; // seed 
 
+// produces a random unsigned int
 unsigned int random_u32(){
   unsigned int x = state;
   x ^= x << 13;
@@ -152,6 +157,7 @@ unsigned int random_u32(){
   return x;
 } 
 
+// produce a random U64
 U64 random_u64(){
   U64 n1, n2, n3, n4;
 
@@ -164,6 +170,7 @@ U64 random_u64(){
   return n1 | (n2 << 16) | (n3 << 32) | (n4 << 48);
 }
 
+// create magic numbers for the rook and bishop
 U64 generate_magic_num(){
   return random_u64() & random_u64() & random_u64();
 }
@@ -197,7 +204,6 @@ int get_lsb_index(U64 bitboard){
 
 // print board and board number
 void printbitboard(U64 bitboard){
-  //Serial.println("\n");
 
   for (int rank=0; rank<8; rank++){
     for(int file=0; file<8; file++){
@@ -272,7 +278,7 @@ void parse_fen(char *fen){
       if((*fen >= 'a' && *fen <= 'z') || (*fen >= 'A' && *fen < 'Z')){
         int piece = char_pieces[*fen];
         set_bit(bitboards[piece], square);
-        *fen++;
+        fen++;
       }
 
       if (*fen >= '0' && *fen <= '9'){
@@ -292,16 +298,16 @@ void parse_fen(char *fen){
         }
 
         file += offset;
-        *fen++;
+        fen++;
         }
 
       if(*fen == '/'){
-        *fen++;
+        fen++;
       }
     }
   }
 
-  *fen++;
+  fen++;
 
   // parse side to move
   (*fen == 'w') ? (side = white) : (side = black);
@@ -315,7 +321,7 @@ void parse_fen(char *fen){
       case 'k': castle |= bk; break;
       case 'q': castle |= bq; break;
     }
-    *fen++;
+    fen++;
   }
 
   // parse enpassant square
@@ -345,6 +351,26 @@ void parse_fen(char *fen){
 
 
   printf("fen: %s\n", fen);
+}
+
+// print attacked pieces by given side
+void print_attacked(int side){
+  for (int rank=0; rank<8; rank++){
+    for(int file=0; file<8; file++){
+      int square = rank*8 + file;
+
+      // print rank number layout
+      if(!file){
+        printf("  %d ", 8 - rank);
+      }
+
+      printf("  %d", is_sq_attacked(square, side) ? 1 : 0);
+    }
+    printf("\n");
+  }
+
+  // print file layout
+  printf("\n      a  b  c  d  e  f  g  h\n\n");
 }
 
 // ----------------------------------------
@@ -623,7 +649,7 @@ U64 mask_king_attacks(int square){
   return attacks;
 }
 
-// bishop attack table generation (without edges)
+// bishop attack mask generation (without edges)
 U64 mask_bishop_attacks(int square){
   U64 attacks = 0ULL;
   int r, f; // rank, file
@@ -646,7 +672,7 @@ U64 mask_bishop_attacks(int square){
   return attacks;
 }
 
-// rook attack table generation (without edges)
+// rook attack mask generation (without edges)
 U64 mask_rook_attacks(int square){
   U64 attacks = 0ULL;
   int r, f; // rank, file
@@ -669,8 +695,8 @@ U64 mask_rook_attacks(int square){
   return attacks;
 }
 
-// bishop attack table with blocked paths accounted for
-U64 bishop_attack_with_block(int square, U64 block){
+// bishop attack mask with blocked paths accounted for
+U64 mask_bishop_attack_with_block(int square, U64 block){
   U64 attacks = 0ULL;
   int r, f; // rank, file
   int tr = square / 8; // target rank
@@ -704,8 +730,8 @@ U64 bishop_attack_with_block(int square, U64 block){
   return attacks;
 }
 
-// rook attack table with blocked paths accounted for
-U64 rook_attack_with_block(int square, U64 block){
+// rook attack mask with blocked paths accounted for
+U64 mask_rook_attack_with_block(int square, U64 block){
   U64 attacks = 0ULL;
   int r, f; // rank, file
   int tr = square / 8; // target rank
@@ -739,6 +765,7 @@ U64 rook_attack_with_block(int square, U64 block){
   return attacks;
 }
 
+// generate bishop attack table
 U64 get_bishop_attacks(int square, U64 occupancy){
   occupancy &= bishop_masks[square];
   occupancy *= bishop_magic_nums[square];
@@ -747,12 +774,37 @@ U64 get_bishop_attacks(int square, U64 occupancy){
   return bishop_attacks[square][occupancy];
 }
 
+// generate rook attack table
 U64 get_rook_attacks(int square, U64 occupancy){
   occupancy &= rook_masks[square];
   occupancy *= rook_magic_nums[square];
   occupancy >>= 64 - rook_relevant_bits[square];
 
   return rook_attacks[square][occupancy];
+}
+
+// produce queen attack table via superpostion of rook & bishop
+U64 get_queen_attacks(int square, U64 occupancy){
+  U64 queen_attacks = 0ULL;
+  U64 bishop_occupancy = occupancy;
+  U64 rook_occupancy = occupancy;
+
+  // bishop attacks
+  bishop_occupancy &= bishop_masks[square];
+  bishop_occupancy *= bishop_magic_nums[square];
+  bishop_occupancy >>= 64 - bishop_relevant_bits[square];
+
+  queen_attacks = bishop_attacks[square][bishop_occupancy];
+
+  // rook attacks
+  rook_occupancy &= rook_masks[square];
+  rook_occupancy *= rook_magic_nums[square];
+  rook_occupancy >>= 64 - rook_relevant_bits[square];
+
+  // superposition rook attacks with bishop attacks for queen
+  queen_attacks |= rook_attacks[square][rook_occupancy];
+
+  return queen_attacks;
 }
 
 // set occupied squares
@@ -771,10 +823,171 @@ U64 set_occup(int index, int bits_in_mask, U64 attack_mask){
   return map;
 }
 
+// test if given square is attacked by given side
+int is_sq_attacked(int square, int side){
+
+  // pawn attacks depending on color
+  if((side == white) && (pawn_attacks[black][square] & bitboards[P])){
+    return 1;
+  }
+
+  if((side == black) && (pawn_attacks[white][square] & bitboards[p])){
+    return 1;
+  }
+
+  // knight attacks
+  if(knight_attacks[square] & ((side == white) ? bitboards[N] : bitboards[n])){
+    return 1;
+  }
+
+  // king attacks
+  if(king_attacks[square] & ((side == white) ? bitboards[K] : bitboards[k])){
+    return 1;
+  }
+
+  // bishop attacks
+  if(get_bishop_attacks(square, occupancies[both]) & ((side == white) ? bitboards[B] : bitboards[b])){
+    return 1;
+  }
+
+  // rook attacks
+  if(get_rook_attacks(square, occupancies[both]) & ((side == white) ? bitboards[R] : bitboards[r])){
+    return 1;
+  }
+
+  // queen attacks
+  if(get_queen_attacks(square, occupancies[both]) & ((side == white) ? bitboards[Q] : bitboards[q])){
+    return 1;
+  }
+  return 0;
+
+}
+
+void generate_moves(){
+  int source_sq, target_sq;
+  U64 bitboard, attacks;
+
+  for(int piece = P; piece <= k; piece++){
+    bitboard = bitboards[piece];
+
+    // side dependent pawn moves
+    if(side == white){
+     if(piece == P){
+      while(bitboard){
+        source_sq = get_lsb_index(bitboard);
+        target_sq = source_sq - 8;
+
+        if(!(target_sq < a8) && !get_bit(occupancies[both], target_sq)){
+          // pawn promotion moves
+          if(source_sq >= a7 && source_sq <= h7){
+              printf("pawn promotion: %s%sQ\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+              printf("pawn promotion: %s%sR\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+              printf("pawn promotion: %s%sB\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+              printf("pawn promotion: %s%sN\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+          } else{
+            // standard pawn push
+            printf("pawn push: %s%s\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+            // double pawn push for 2nd rank pawns
+            if((source_sq >= a2 && source_sq <= h2) && !get_bit(occupancies[both], target_sq - 8)){
+              printf("double pawn push: %s%s\n", square_to_coord[source_sq], square_to_coord[target_sq - 8]);
+            }
+          }
+        }
+
+        // init attacks bitboard for pawns
+        attacks = pawn_attacks[side][source_sq] & occupancies[black];
+
+        // generate pawn captures
+        while(attacks){
+          target_sq = get_lsb_index(attacks);
+
+          if(source_sq >= a7 && source_sq <= h7){
+            printf("pawn capture promo: %s%sQ\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+            printf("pawn capture promo: %s%sR\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+            printf("pawn capture promo: %s%sB\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+            printf("pawn capture promo: %s%sN\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+          } else {
+            printf("pawn capture: %s%s\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+          }
+
+          pop_bit(attacks, target_sq);
+        }
+
+        if(enpassant != no_sq){
+          U64 enpassant_attacks = pawn_attacks[side][source_sq] & (1ULL << enpassant);
+          if(enpassant_attacks) {
+            int target_enpassant = get_lsb_index(enpassant_attacks);
+            printf("pawn enpassant capture: %s%s\n", square_to_coord[source_sq], square_to_coord[target_enpassant]);
+          }
+        }
+
+        pop_bit(bitboard, source_sq);
+      }
+     }
+    } else {
+      if(piece == p){
+      while(bitboard){
+        source_sq = get_lsb_index(bitboard);
+        target_sq = source_sq + 8;
+
+        if(!(target_sq > h1) && !get_bit(occupancies[both], target_sq)){
+          // pawn promotion moves
+          if(source_sq >= a2 && source_sq <= h2){
+              printf("pawn promotion: %s%sQ\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+              printf("pawn promotion: %s%sR\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+              printf("pawn promotion: %s%sB\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+              printf("pawn promotion: %s%sN\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+          } else {
+            // standard pawn push
+            printf("pawn push: %s%s\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+            // double pawn push for 7th rank pawns
+            if((source_sq >= a7 && source_sq <= h7) && !get_bit(occupancies[both], target_sq + 8)){
+              printf("double pawn push: %s%s\n", square_to_coord[source_sq], square_to_coord[target_sq + 8]);
+            }
+          }
+        }
+
+        // init attacks bitboard for pawns
+        attacks = pawn_attacks[side][source_sq] & occupancies[white];
+
+        // generate pawn captures
+        while(attacks){
+          target_sq = get_lsb_index(attacks);
+
+          if(source_sq >= a2 && source_sq <= h2){
+            printf("pawn capture promo: %s%sQ\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+            printf("pawn capture promo: %s%sR\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+            printf("pawn capture promo: %s%sB\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+            printf("pawn capture promo: %s%sN\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+          } else {
+            printf("pawn capture: %s%s\n", square_to_coord[source_sq], square_to_coord[target_sq]);
+          }
+
+          pop_bit(attacks, target_sq);
+        }
+
+        if(enpassant != no_sq){
+          U64 enpassant_attacks = pawn_attacks[side][source_sq] & (1ULL << enpassant);
+          if(enpassant_attacks) {
+            int target_enpassant = get_lsb_index(enpassant_attacks);
+            printf("pawn enpassant capture: %s%s\n", square_to_coord[source_sq], square_to_coord[target_enpassant]);
+          }
+        }
+
+        pop_bit(bitboard, source_sq);
+      }
+     }
+    }
+  }
+
+
+}
+
 // ----------------------------------------
 // magic number generation
 // ----------------------------------------
 
+// locate magic numbers for bishop or rook
 U64 find_magic_num(int square, int relevant_bits, int bishop){
   U64 occupancies[4096];
   U64 attacks[4096];
@@ -784,7 +997,7 @@ U64 find_magic_num(int square, int relevant_bits, int bishop){
   int occupancy_indices = 1 << relevant_bits;
   for(int idx = 0; idx < occupancy_indices; idx++){
     occupancies[idx] = set_occup(idx, relevant_bits, attack_mask);
-    attacks[idx] = bishop ? bishop_attack_with_block(square, occupancies[idx]) : rook_attack_with_block(square, occupancies[idx]); 
+    attacks[idx] = bishop ? mask_bishop_attack_with_block(square, occupancies[idx]) : mask_rook_attack_with_block(square, occupancies[idx]); 
   }
 
   // test magic nums
@@ -815,6 +1028,7 @@ U64 find_magic_num(int square, int relevant_bits, int bishop){
     return 0ULL;
 }
 
+// initialize magic numbers
 void init_magic_nums(){
   for(int square = 0; square < 64; square++){
     printf(" 0x%llxULL,\n", find_magic_num(square, rook_relevant_bits[square], rook));
@@ -826,6 +1040,7 @@ void init_magic_nums(){
 // intializations
 // ----------------------------------------
 
+// initialize all leaper pieces (pawn, knight, king)
 void init_leapers_attacks(){
   for (int square=0; square<64; square++){
     pawn_attacks[white][square] = mask_pawn_attacks(white, square);
@@ -835,6 +1050,7 @@ void init_leapers_attacks(){
   }
 }
 
+// initialize all slider pieces (bishop, rook)
 void init_sliders_attacks(int bishop){
   for(int square = 0; square < 64; square++){
     bishop_masks[square] = mask_bishop_attacks(square);
@@ -850,13 +1066,13 @@ void init_sliders_attacks(int bishop){
         U64 occupancy = set_occup(idx, relevant_bits, attack_mask);
         int magic_idx = (occupancy * bishop_magic_nums[square]) >> (64 - bishop_relevant_bits[square]);
 
-        bishop_attacks[square][magic_idx] = bishop_attack_with_block(square, occupancy);
+        bishop_attacks[square][magic_idx] = mask_bishop_attack_with_block(square, occupancy);
       } else {
         // ROOK
         U64 occupancy = set_occup(idx, relevant_bits, attack_mask);
         int magic_idx = (occupancy * rook_magic_nums[square]) >> (64 - rook_relevant_bits[square]);
 
-        rook_attacks[square][magic_idx] = rook_attack_with_block(square, occupancy);
+        rook_attacks[square][magic_idx] = mask_rook_attack_with_block(square, occupancy);
       }
     }
   }
@@ -872,12 +1088,11 @@ void init_all(){
 
 int main(){
   init_all();
-
-  side = black;
-  castle = 0b0110;
-
-  parse_fen(tricky_position);
+  parse_fen("r3k2r/pPppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPpP/R3K2R w KQkq a3 0 1 ");
   printboard();
+  printf("Moves:\n");
+  generate_moves();
+
 
   return 0;
 }
