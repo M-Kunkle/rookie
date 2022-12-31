@@ -90,6 +90,9 @@ int is_sq_attacked(int square, int side);
 void generate_moves(moves *move_list);
 void print_move(int move);
 void print_move_list(moves *move_list);
+void copy_board();
+void take_back();
+void make_move(int move, int move_flag);
 
 
 
@@ -161,6 +164,9 @@ enum { white, black, both };
 
 // qol for bishop/rook attacks
 enum { rook, bishop };
+
+// enum move types to distinguish captures from quiet moves
+enum { all_moves, capture_moves };
 
 // bitboards, 6 for white, 6 for black
 // 1 for each possible piece type
@@ -245,6 +251,7 @@ U64 generate_magic_num(){
 // bit manipulation and board output
 // ------------------------------------------
 
+// copy the current board state onto copy variables
 void copy_board(){
   memcpy(bitboards_copy, bitboards, sizeof(bitboards));
   memcpy(occupancies_copy, occupancies, sizeof(occupancies));
@@ -254,6 +261,7 @@ void copy_board(){
   castle_copy = castle;
 }
 
+// restore board back to state before it was copied
 void take_back(){
   memcpy(bitboards, bitboards_copy, sizeof(bitboards));
   memcpy(occupancies, occupancies_copy, sizeof(occupancies));
@@ -968,6 +976,10 @@ int is_sq_attacked(int square, int side){
 
 }
 
+// ----------------------------------------
+// move maker and generator
+// ----------------------------------------
+
 // generate all possible moves for the given board position, side to move from fen
 void generate_moves(moves *move_list){
   int source_sq, target_sq;
@@ -1224,6 +1236,71 @@ void generate_moves(moves *move_list){
   }
 }
 
+// make move on board
+void make_move(int move, int move_flag){
+
+  // quiet moves (non captures)
+  if(move_flag == all_moves){
+    copy_board();
+
+    // move parsing
+    int source_sq = get_move_source(move);
+    int target_sq = get_move_target(move);
+    int piece = get_move_piece(move);
+    int promotion = get_move_promoted(move);
+    int capture = get_move_capture(move);
+    int doub = get_move_double(move);
+    int enpass = get_move_enpassant(move);
+    int castling = get_move_castling(move);
+
+    // move piece
+    pop_bit(bitboards[piece], source_sq);
+    set_bit(bitboards[piece], target_sq);
+
+    // handle removing captured pieces
+    if(capture){
+      int start_piece, end_piece;
+
+      // if captured piece is black we loop thru black, otherwise loop thru white
+      if(side == white){
+        start_piece = p;
+        end_piece = k;
+      } else {
+        start_piece = P;
+        end_piece = K;
+      }
+
+      for(int piece_idx = start_piece; piece_idx <= end_piece; piece_idx++){
+        if(get_bit(bitboards[piece_idx], target_sq)){
+          pop_bit(bitboards[piece_idx], target_sq);
+          break;
+        }
+      }
+    }
+
+    // handle pawn promotion
+    if(promotion){
+      // remove pawn from promotion square
+      pop_bit(bitboards[side == white ? P : p], target_sq);
+
+      // insert promotion piece
+      set_bit(bitboards[promotion], target_sq);
+    }
+  } 
+
+  // capture moves
+  else {
+    if(get_move_capture(move)){
+      make_move(move, all_moves);
+    } else {
+      return;
+    }
+
+  }
+
+
+}
+
 // ----------------------------------------
 // magic number generation
 // ----------------------------------------
@@ -1332,17 +1409,26 @@ void init_all(){
 int main(){
 
   init_all();
-  parse_fen("r3k2r/p2pqpb1/bn2pnp1/2pPN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq c6 0 1 ");
+  parse_fen("r3k2r/pP1pqpb1/bn2pnp1/2pPN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq c6 0 1 ");
   printboard();
 
-  copy_board();
+  moves move_list[1];
+  generate_moves(move_list);
 
-  parse_fen(empty_board);
-  printboard();
+  for(int i = 0; i < move_list->count; i++){
+    int move = move_list->moves[i];
 
-  take_back();
+    copy_board();
+    make_move(move, all_moves);
+    printboard();
+    getchar();
+    take_back();
+    printboard();
+    getchar();
 
-  printboard();
+
+
+  }
 
 
   return 0;
