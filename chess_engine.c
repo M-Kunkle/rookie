@@ -92,7 +92,7 @@ void print_move(int move);
 void print_move_list(moves *move_list);
 void copy_board();
 void take_back();
-void make_move(int move, int move_flag);
+int make_move(int move, int move_flag);
 
 
 
@@ -204,6 +204,31 @@ int castle;
 int castle_copy;
 
 enum { wk = 1, wq = 2, bk = 4, bq = 8 };
+
+/*
+                           castling   move     in      in
+                              right update     binary  decimal
+ king & rooks didn't move:     1111 & 1111  =  1111    15
+        white king  moved:     1111 & 1100  =  1100    12
+  white king's rook moved:     1111 & 1110  =  1110    14
+ white queen's rook moved:     1111 & 1101  =  1101    13
+     
+         black king moved:     1111 & 0011  =  1011    3
+  black king's rook moved:     1111 & 1011  =  1011    11
+ black queen's rook moved:     1111 & 0111  =  0111    7
+*/
+
+// castling rights update constants
+const int castling_rights[64] = {
+     7, 15, 15, 15,  3, 15, 15, 11,
+    15, 15, 15, 15, 15, 15, 15, 15,
+    15, 15, 15, 15, 15, 15, 15, 15,
+    15, 15, 15, 15, 15, 15, 15, 15,
+    15, 15, 15, 15, 15, 15, 15, 15,
+    15, 15, 15, 15, 15, 15, 15, 15,
+    15, 15, 15, 15, 15, 15, 15, 15,
+    13, 15, 15, 15, 12, 15, 15, 14
+};
 
 // add a move to the move list
 void add_move(moves * move_list, int move){
@@ -1237,7 +1262,7 @@ void generate_moves(moves *move_list){
 }
 
 // make move on board
-void make_move(int move, int move_flag){
+int make_move(int move, int move_flag){
 
   // quiet moves (non captures)
   if(move_flag == all_moves){
@@ -1286,16 +1311,88 @@ void make_move(int move, int move_flag){
       // insert promotion piece
       set_bit(bitboards[promotion], target_sq);
     }
-  } 
 
+    // handle removing pawns captured via enpassant
+    if (enpass){
+      if(side == white){
+        pop_bit(bitboards[p], target_sq + 8);
+      } else {
+        pop_bit(bitboards[P], target_sq - 8);
+      }
+    }
+
+    // reset enpassant to n/a every time a move is made
+    enpassant = no_sq;
+
+    // set new enpassant square if there is a double pawn push
+    if(doub){
+      if(side == white){
+        enpassant = target_sq + 8;
+      } else {
+        enpassant = target_sq - 8;
+      }
+    }
+
+    // handle moving rook during castling moves
+    if(castling){
+      switch(target_sq){
+        case (g1):  // white kingside
+          pop_bit(bitboards[R], h1);
+          set_bit(bitboards[R], f1);
+          break;
+        case (c1):  // white queenside
+          pop_bit(bitboards[R], a1);
+          set_bit(bitboards[R], d1);
+          break;
+        case (g8): // black kingside
+          pop_bit(bitboards[R], h8);
+          set_bit(bitboards[R], f8);
+          break;
+        case (c8): // black queenside
+          pop_bit(bitboards[R], a8);
+          set_bit(bitboards[R], d8);
+          break;
+        default:
+          break;
+      }
+    }
+
+    // update the castling rights after the move
+    castle &= castling_rights[source_sq];
+    castle &= castling_rights[target_sq];
+
+    // update occupancy boards
+    memset(occupancies, 0ULL, 24);
+    for(int piece_idx = P; piece_idx <= K; piece_idx++){
+      occupancies[white] |= bitboards[piece_idx];
+      occupancies[both] |= occupancies[white];
+    }
+    for(int piece_idx = p; piece_idx <= k; piece_idx++){
+      occupancies[black] |= bitboards[piece_idx];
+      occupancies[both] |= occupancies[black];
+    }
+   
+
+    // change side to move
+    side ^= 1;
+
+    // check move for legality (king isn't moving into check)
+    if(is_sq_attacked((side == white) ? get_lsb_index(bitboards[k]) : get_lsb_index(bitboards[K]), side)){
+      // move is illegal because king is under fire, so undo move
+      take_back();
+      return 0;
+    } else {
+      return 1;
+    }
+  }
+  
   // capture moves
   else {
     if(get_move_capture(move)){
       make_move(move, all_moves);
     } else {
-      return;
+      return 0;
     }
-
   }
 
 
@@ -1409,7 +1506,7 @@ void init_all(){
 int main(){
 
   init_all();
-  parse_fen("r3k2r/pP1pqpb1/bn2pnp1/2pPN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq c6 0 1 ");
+  parse_fen("r3k2r/pP1pqpb1/bn2pnp1/2pPN3/1p2P3/2N2Q1p/PPPbBPPP/R3K2R w KQkq c6 0 1 ");
   printboard();
 
   moves move_list[1];
@@ -1417,17 +1514,15 @@ int main(){
 
   for(int i = 0; i < move_list->count; i++){
     int move = move_list->moves[i];
-
     copy_board();
-    make_move(move, all_moves);
-    printboard();
-    getchar();
-    take_back();
-    printboard();
-    getchar();
-
-
-
+    if(make_move(move, all_moves)){
+      //make_move(move, all_moves);
+      printboard();
+      getchar();
+      take_back();
+      printboard();
+      getchar();
+    }
   }
 
 
