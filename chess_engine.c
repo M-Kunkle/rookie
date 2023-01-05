@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <windows.h>
 
 #define U64 unsigned long long
 
@@ -58,6 +59,20 @@ typedef struct{
   int count;
 } moves;
 
+// take back and copy board macros
+#define take_back()                                                       \
+    memcpy(bitboards, bitboards_copy, 96);                                \
+    memcpy(occupancies, occupancies_copy, 24);                            \
+    side = side_copy, enpassant = enpassant_copy, castle = castle_copy;   \
+
+// preserve board state
+#define copy_board()                                                      \
+    U64 bitboards_copy[12], occupancies_copy[3];                          \
+    int side_copy, enpassant_copy, castle_copy;                           \
+    memcpy(bitboards_copy, bitboards, 96);                                \
+    memcpy(occupancies_copy, occupancies, 24);                            \
+    side_copy = side, enpassant_copy = enpassant, castle_copy = castle;   \
+
 // ------------------------------------------
 // function declarations
 // ------------------------------------------
@@ -71,8 +86,8 @@ U64 mask_rook_attacks(int square);
 U64 mask_bishop_attack_with_block(int square, U64 block);
 U64 mask_rook_attack_with_block(int square, U64 block);
 void init_leapers_attacks(void);
-int count_bits(U64 bitboard);
-int get_lsb_index(U64 bitboard);
+static inline int count_bits(U64 bitboard);
+static inline int get_lsb_index(U64 bitboard);
 U64 set_occup(int index, int bits_in_mask, U64 attack_mask);
 unsigned int random_u32(void);
 U64 random_u64(void);
@@ -81,18 +96,19 @@ U64 find_magic_num(int square, int relevant_bits, int bishop);
 void init_magic_nums(void);
 void init_all(void);
 void init_sliders_attacks(int bishop);
-U64 get_rook_attacks(int square, U64 occupancy);
-U64 get_bishop_attacks(int square, U64 occupancy);
+static inline U64 get_rook_attacks(int square, U64 occupancy);
+static inline U64 get_bishop_attacks(int square, U64 occupancy);
 void parse_fen(char *fen);
-U64 get_queen_attacks(int square, U64 occupancy);
+static inline U64 get_queen_attacks(int square, U64 occupancy);
 void print_attacked(int side);
-int is_sq_attacked(int square, int side);
-void generate_moves(moves *move_list);
+static inline int is_sq_attacked(int square, int side);
+static inline void generate_moves(moves *move_list);
 void print_move(int move);
 void print_move_list(moves *move_list);
-void copy_board();
-void take_back();
-int make_move(int move, int move_flag);
+static inline int make_move(int move, int move_flag);
+int get_time_ms(void);
+static inline void perft_driver(int depth);
+static inline void add_move(moves * move_list, int move);
 
 
 
@@ -231,12 +247,44 @@ const int castling_rights[64] = {
 };
 
 // add a move to the move list
-void add_move(moves * move_list, int move){
+static inline void add_move(moves * move_list, int move){
   move_list->moves[move_list->count] = move;
   move_list->count++;
 }
 
-// store current board state in alternate copy
+
+// -------------------------------------------
+// timer related functions and perftest
+// -------------------------------------------
+
+int get_time_ms(){
+  return GetTickCount();
+}
+
+// leaf nodes
+long nodes;
+
+//perft
+static inline void perft_driver(int depth){
+  // recursion escape condition
+  if(depth == 0){
+    nodes++;
+    return;
+  }
+
+  moves move_list[1];
+  generate_moves(move_list);
+
+  for(int i = 0; i < move_list->count; i++){
+    copy_board();
+    if(!make_move(move_list->moves[i], all_moves)){
+      continue;
+    }
+
+    perft_driver(depth-1);
+    take_back();
+  }
+}
 
 
 // -------------------------------------------
@@ -276,6 +324,7 @@ U64 generate_magic_num(){
 // bit manipulation and board output
 // ------------------------------------------
 
+/*
 // copy the current board state onto copy variables
 void copy_board(){
   memcpy(bitboards_copy, bitboards, sizeof(bitboards));
@@ -285,7 +334,8 @@ void copy_board(){
   enpassant_copy = enpassant;
   castle_copy = castle;
 }
-
+*/
+/*
 // restore board back to state before it was copied
 void take_back(){
   memcpy(bitboards, bitboards_copy, sizeof(bitboards));
@@ -294,9 +344,9 @@ void take_back(){
   enpassant = enpassant_copy;
   castle = castle_copy;
 }
-
+*/
 // count bits on the current board
-int count_bits(U64 bitboard){
+static inline int count_bits(U64 bitboard){
   int bitcount = 0;
 
   while(bitboard){
@@ -308,7 +358,7 @@ int count_bits(U64 bitboard){
 }
 
 // get least significant bit index
-int get_lsb_index(U64 bitboard){
+static inline int get_lsb_index(U64 bitboard){
   int index;
   if(bitboard){
     index = count_bits((bitboard & - bitboard)-1);
@@ -904,7 +954,7 @@ U64 mask_rook_attack_with_block(int square, U64 block){
 }
 
 // generate bishop attack table
-U64 get_bishop_attacks(int square, U64 occupancy){
+static inline U64 get_bishop_attacks(int square, U64 occupancy){
   occupancy &= bishop_masks[square];
   occupancy *= bishop_magic_nums[square];
   occupancy >>= 64 - bishop_relevant_bits[square];
@@ -913,7 +963,7 @@ U64 get_bishop_attacks(int square, U64 occupancy){
 }
 
 // generate rook attack table
-U64 get_rook_attacks(int square, U64 occupancy){
+static inline U64 get_rook_attacks(int square, U64 occupancy){
   occupancy &= rook_masks[square];
   occupancy *= rook_magic_nums[square];
   occupancy >>= 64 - rook_relevant_bits[square];
@@ -922,7 +972,7 @@ U64 get_rook_attacks(int square, U64 occupancy){
 }
 
 // produce queen attack table via superpostion of rook & bishop
-U64 get_queen_attacks(int square, U64 occupancy){
+static inline U64 get_queen_attacks(int square, U64 occupancy){
   U64 queen_attacks = 0ULL;
   U64 bishop_occupancy = occupancy;
   U64 rook_occupancy = occupancy;
@@ -962,7 +1012,7 @@ U64 set_occup(int index, int bits_in_mask, U64 attack_mask){
 }
 
 // test if given square is attacked by given side
-int is_sq_attacked(int square, int side){
+static inline int is_sq_attacked(int square, int side){
 
   // pawn attacks depending on color
   if((side == white) && (pawn_attacks[black][square] & bitboards[P])){
@@ -1006,7 +1056,7 @@ int is_sq_attacked(int square, int side){
 // ----------------------------------------
 
 // generate all possible moves for the given board position, side to move from fen
-void generate_moves(moves *move_list){
+static inline void generate_moves(moves *move_list){
   int source_sq, target_sq;
   U64 bitboard, attacks;
   move_list->count = 0;
@@ -1262,7 +1312,7 @@ void generate_moves(moves *move_list){
 }
 
 // make move on board
-int make_move(int move, int move_flag){
+static inline int make_move(int move, int move_flag){
 
   // quiet moves (non captures)
   if(move_flag == all_moves){
@@ -1497,6 +1547,7 @@ void init_all(){
   init_leapers_attacks();
   init_sliders_attacks(bishop);
   init_sliders_attacks(rook);
+
 }
 
 // ----------------------------------------
@@ -1506,25 +1557,18 @@ void init_all(){
 int main(){
 
   init_all();
-  parse_fen("r3k2r/pP1pqpb1/bn2pnp1/2pPN3/1p2P3/2N2Q1p/PPPbBPPP/R3K2R w KQkq c6 0 1 ");
+  parse_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
   printboard();
 
-  moves move_list[1];
-  generate_moves(move_list);
+  //moves move_list[1];
+  //generate_moves(move_list);
+  
+  int start = get_time_ms();
+  perft_driver(6);
+  int end = get_time_ms();
 
-  for(int i = 0; i < move_list->count; i++){
-    int move = move_list->moves[i];
-    copy_board();
-    if(make_move(move, all_moves)){
-      //make_move(move, all_moves);
-      printboard();
-      getchar();
-      take_back();
-      printboard();
-      getchar();
-    }
-  }
-
-
+  printf("Time taken: %d ms\n", end - start);
+  printf("Nodes: %ld\n", nodes);
+  
   return 0;
 }
