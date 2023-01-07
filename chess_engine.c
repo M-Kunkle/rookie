@@ -1201,14 +1201,14 @@ U64 set_occup(int index, int bits_in_mask, U64 attack_mask){
       if(piece == k){
         if(castle & bk){
           if(!get_bit(occupancies[both],f8) && !get_bit(occupancies[both],g8)){
-            if(!is_sq_attacked(g8, white) && !is_sq_attacked(f8, white)){
+            if(!is_sq_attacked(e8, white) && !is_sq_attacked(f8, white)){
               add_move(move_list, encode_move(e8, g8, piece, 0, 0, 0, 0, 1));
             }
           }
         }
         if(castle & bq){
           if(!get_bit(occupancies[both],d8) && !get_bit(occupancies[both],c8) && !get_bit(occupancies[both],b8)){
-            if(!is_sq_attacked(d8, white) && !is_sq_attacked(c8, white) ){
+            if(!is_sq_attacked(d8, white) && !is_sq_attacked(e8, white) ){
               add_move(move_list, encode_move(e8, c8, piece, 0, 0, 0, 0, 1));
             }
           }
@@ -1566,10 +1566,11 @@ void init_all(){
 int main(){
 
   init_all();
-  //parse_fen(tricky_position);
   parse_fen(tricky_position);
-  printboard();
   
+  //parse_fen(start_position);
+      //parse_fen("r3k2r/p1p1qpb1/bn1ppnp1/1B1PN3/1p2P3/2N1Q2p/PPPBBPPP/R3K2R b KQkq - 0 1 ");
+  printboard();
 
 
   perft_test(4);

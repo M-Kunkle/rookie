@@ -2241,7 +2241,8 @@ int main()
     init_all();
     
     // parse fen
-    parse_fen("r3k2r/p1pNqpb1/bn2pnp1/3P4/1p2P3/2N2Q1p/PPPBBPPP/R3K2R b KQkq - 0 1 ");
+    parse_fen("r3k2r/p1p1qpb1/bn1ppnp1/1B1PN3/1p2P3/2N1Q2p/PPPBBPPP/R3K2R b KQkq - 0 1 ");
+    print_board();
 
     // start tracking time
     int start = get_time_ms();

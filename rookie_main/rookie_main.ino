@@ -1,3 +1,5 @@
+
+/*
 #include <HIDSerial.h>
 #include <oddebug.h>
 #include <usbconfig-prototype.h>
@@ -5,7 +7,7 @@
 #include <usbdrv.h>
 #include <usbportability.h>
 #include <Matrix.h>
-
+*/
 /*
 
     ROOKIE - Chess playing robot
@@ -18,7 +20,7 @@
 // Define Arduino Digital Pins (pins unused as of now: 0, 1, a1, a2, a3 )
 // Note: Analog pins can be used as digital
 
-Matrix myMatrix(A4, A5); // To be removed
+//Matrix myMatrix(A4, A5); // To be removed
 
 #define dir1 4        // Stepper 1 DIR+
 #define step1 5       // Stepper 1 PUL+
@@ -35,6 +37,7 @@ Matrix myMatrix(A4, A5); // To be removed
 #define dminus 7      // USB D- (White)
 
 
+byte board[8];
 const int spaceWidth = 50; // 50mm squares
 const int stepsPerSpace = (spaceWidth / 8) * 200; // revs * steps per rev (1.8 deg/phase, 2mm pitch, 8mm per revolution)
 const int wait = 500; // Delay for stepper steps
@@ -63,7 +66,9 @@ void setup() {
 }
 
 void loop() {
-
+  Serial.println("Reading");
+  readBoard();
+  delay(1000);
 }
 
 
@@ -177,6 +182,7 @@ void readBoard() {
       delayMicroseconds(5);
       digitalWrite(clockPin, HIGH); //send a clock leading edge so to load the next bit
     } 
+    board[j] = bus;
     
   }
   printBoard();
@@ -193,7 +199,7 @@ void printBoard() {
     sprintf(output, "%d: %02x\n", i, board[i]);
     Serial.println(output);
   }
-
+  /*
   // New Matrix Stuff
   uint8_t  LEDArray[8];
   myMatrix.clear();
@@ -208,4 +214,5 @@ void printBoard() {
     }
   }
   myMatrix.writeDisplay();
+  */
 }
