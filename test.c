@@ -2241,13 +2241,13 @@ int main()
     init_all();
     
     // parse fen
-    parse_fen(tricky_position);
+    parse_fen("r3k2r/p1pNqpb1/bn2pnp1/3P4/1p2P3/2N2Q1p/PPPBBPPP/R3K2R b KQkq - 0 1 ");
 
     // start tracking time
     int start = get_time_ms();
 
     // perft
-    perft_test(2);
+    perft_test(1);
     getchar();
 
     return 0;

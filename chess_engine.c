@@ -106,7 +106,7 @@ void generate_moves(moves *move_list);
 void print_move(int move);
 void print_move_list(moves *move_list);
 int make_move(int move, int move_flag);
-int get_time_ms(void);
+unsigned long get_time_ms(void);
 void perft_driver(int depth);
 void perft_test(int depth);
 void add_move(moves * move_list, int move);
@@ -258,12 +258,12 @@ const int castling_rights[64] = {
 // timer related functions and perftest
 // -------------------------------------------
 
-int get_time_ms(){
+unsigned long get_time_ms(){
   return GetTickCount();
 }
 
 // leaf nodes
-long nodes;
+unsigned long long nodes;
 
 // performance testing to ensure board representation fidelity
 void perft_driver(int depth){
@@ -281,7 +281,7 @@ void perft_driver(int depth){
     if(!make_move(move_list->moves[i], all_moves)){
       continue;
     }
-
+    //print_move(move_list->moves[i]);
     perft_driver(depth-1);
     take_back();
   }
@@ -291,28 +291,28 @@ void perft_test(int depth){
   moves move_list[1];
   generate_moves(move_list);
 
-  long start = get_time_ms();
+  unsigned long start = get_time_ms();
   for(int i = 0; i < move_list->count; i++){
     copy_board();
     if(!make_move(move_list->moves[i], all_moves)){
       continue;
     }
 
-    long node_sum = nodes;
+    unsigned long long node_sum = nodes;
 
     perft_driver(depth-1);
-    long prev_nodes = nodes - node_sum;
+    unsigned long long prev_nodes = nodes - node_sum;
     take_back();
 
 
     printf("Move: %s%s%c", square_to_coord[get_move_source(move_list->moves[i])], 
                       square_to_coord[get_move_target(move_list->moves[i])], 
                       promoted_pieces[get_move_promoted(move_list->moves[i])]);
-    printf("   Nodes: %ld\n", prev_nodes);
+    printf("   Nodes: %llu\n", prev_nodes);
   }
-  long total_time = get_time_ms() - start;
+  unsigned long total_time = get_time_ms() - start;
 
-  printf("\n    Depth: %d\n    Nodes: %ld\n     Time: %ld ms\n ", depth, nodes, total_time);
+  printf("\n    Depth: %d\n    Nodes: %llu\n     Time: %ld ms\n ", depth, nodes, total_time);
 }
 
 // -------------------------------------------
@@ -1138,7 +1138,7 @@ U64 set_occup(int index, int bits_in_mask, U64 attack_mask){
         }
         if(castle & wq){
           if(!get_bit(occupancies[both],d1) && !get_bit(occupancies[both],c1) && !get_bit(occupancies[both],b1)){
-            if(!is_sq_attacked(d1, black) && !is_sq_attacked(e1, black) && !is_sq_attacked(b1, black)){
+            if(!is_sq_attacked(d1, black) && !is_sq_attacked(e1, black)){
               add_move(move_list, encode_move(e1, c1, piece, 0, 0, 0, 0, 1));
             }
           }
@@ -1208,7 +1208,7 @@ U64 set_occup(int index, int bits_in_mask, U64 attack_mask){
         }
         if(castle & bq){
           if(!get_bit(occupancies[both],d8) && !get_bit(occupancies[both],c8) && !get_bit(occupancies[both],b8)){
-            if(!is_sq_attacked(d8, white) && !is_sq_attacked(c8, white) && !is_sq_attacked(b8, white)){
+            if(!is_sq_attacked(d8, white) && !is_sq_attacked(c8, white) ){
               add_move(move_list, encode_move(e8, c8, piece, 0, 0, 0, 0, 1));
             }
           }
@@ -1403,12 +1403,12 @@ U64 set_occup(int index, int bits_in_mask, U64 attack_mask){
           set_bit(bitboards[R], d1);
           break;
         case (g8): // black kingside
-          pop_bit(bitboards[R], h8);
-          set_bit(bitboards[R], f8);
+          pop_bit(bitboards[r], h8);
+          set_bit(bitboards[r], f8);
           break;
         case (c8): // black queenside
-          pop_bit(bitboards[R], a8);
-          set_bit(bitboards[R], d8);
+          pop_bit(bitboards[r], a8);
+          set_bit(bitboards[r], d8);
           break;
         default:
           break;
@@ -1566,25 +1566,14 @@ void init_all(){
 int main(){
 
   init_all();
-  //parse_fen("r3k2r/p1ppqpb1/bn1Ppnp1/4N3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R b KQkq - 0 1 ");
+  //parse_fen(tricky_position);
   parse_fen(tricky_position);
   printboard();
-
-  moves move_list[1];
-  generate_moves(move_list);
   
-  print_move_list(move_list);
 
 
-  perft_test(2);
-  //moves move_list[1];
-  //generate_moves(move_list);
-  
-  //perft_test(2);
-  //int end = get_time_ms();
+  perft_test(4);
 
-  //printf("Time taken: %d ms\n", end - start);
-  //printf("Nodes: %ld\n", nodes);
   
   return 0;
 }
