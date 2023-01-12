@@ -1,0 +1,34 @@
+[Event "Computer chess game"]
+[Site "DESKTOP-2SPG64C"]
+[Date "2023.01.12"]
+[Round "?"]
+[White "Matthew"]
+[Black "Rookie"]
+[Result "1-0"]
+[BlackElo "2000"]
+[ECO "A40"]
+[Opening "Queen's Pawn"]
+[Time "02:17:14"]
+[Variation "1...e6 2.c4"]
+[WhiteElo "2400"]
+[TimeControl "1800"]
+[Termination "rules infraction"]
+[PlyCount "157"]
+[WhiteType "human"]
+[BlackType "program"]
+
+1. d4 e6 2. c4 Nc6 3. Nc3 Bb4 4. a3 Be7 5. Bf4 g5 6. Bg3 f5 7. e3 Nf6 8.
+Be2 O-O 9. d5 Nb8 10. d6 cxd6 11. Bxd6 Ne4 12. Nxe4 fxe4 13. Bxe7 Qxe7 14.
+Qd4 Qf6 15. Qxf6 Rxf6 16. Nh3 h6 17. O-O d5 18. cxd5 exd5 19. Rac1 Nc6 20.
+Rc5 Be6 21. Rd1 Ne5 22. Rc7 Rf7 23. Rdc1 Bxh3 24. gxh3 Nf3+ 25. Kg2 Rd8 26.
+Rxf7 Kxf7 27. Bxf3 exf3+ 28. Kxf3 Ke6 29. Rc7 Rd7 30. Rc8 d4 31. exd4 Rxd4
+32. Rh8 Rd3+ 33. Kg2 Rb3 34. Rxh6+ Kd5 35. Rg6 Rxb2 36. Rxg5+ Ke6 37. a4 b6
+38. h4 Rb4 39. h5 Rxa4 40. h6 Rh4 41. Rg6+ Ke5 42. Kg3 Kf5 43. Rg7 Rxh6 44.
+Rxa7 Rg6+ 45. Kf3 Rh6 46. Kg2 Rg6+ 47. Kf1 Rc6 48. Rb7 Rd6 49. Kg2 Kf4 50.
+Rf7+ Ke5 51. Rh7 Rg6+ 52. Kf1 Rc6 53. h4 Rc4 54. h5 Rh4 55. h6 b5 56. Rh8
+Kd6 57. h7 Kc7 58. Ke2 Kb7 59. f4 Rh3 60. f5 b4 61. f6 b3 62. Kd2 b2 63.
+Kc2 Rh2+ 64. Kb1 Kc7 65. f7 Rh1+ 66. Kxb2 Rh2+ 67. Kc3 Rh3+ 68. Kd4 Rh4+
+69. Ke5 Rh5+ 70. Kf6 Rh3 71. f8=Q Rf3+ 72. Kg7 Rg3+ 73. Kf7 Rf3+ 74. Ke8
+Re3+ 75. Qe7+ Rxe7+ 76. Kxe7 Kc6 77. Rd8 Kc7 78. h8=Q Kc6 79. Qc3 {Arena
+Adjudication. Illegal move!} 1-0
+

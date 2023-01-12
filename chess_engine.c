@@ -2,6 +2,7 @@
 // https://github.com/maksimKorzh/chess_programming/tree/master/src/bbc
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <windows.h>
 
@@ -107,6 +108,15 @@ void init_all(void);
 void init_leapers_attacks(void);
 void init_sliders_attacks(int bishop);
 
+// UCI 
+int parse_move(char *move_string);
+void parse_position(char *command);
+void parse_go(char *command);
+void uci_loop(void);
+
+// search
+void search_position(int depth);
+
 // homeless
 unsigned long get_time_ms(void);
 void perft_test(int depth);
@@ -119,9 +129,10 @@ U64 get_bishop_attacks(int square, U64 occupancy);
 U64 get_queen_attacks(int square, U64 occupancy);
 int is_sq_attacked(int square, int side);
 void generate_moves(moves *move_list);
-int make_move(int move, int move_flag);
+int make_move(int move, int move_flag);initializations
 void perft_driver(int depth);
 void add_move(moves * move_list, int move);
+int negamax(int alpha, int beta, int depth);
 */
 
 // -------------------------------------------
@@ -185,7 +196,7 @@ const char *square_to_coord[] = {
     "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
 };
 
-// UCI promoted pieces must be lower case regardless of color, ie: e7e8q not e7e8Q
+// UCI promoted pieces must be lower case regardless of color, eg. e7e8q not e7e8Q
 char promoted_pieces[] = {
     [Q] = 'q',
     [R] = 'r',
@@ -988,7 +999,7 @@ void print_board(){
       }
 
       // had to do some crazy unicode spacing to make the board look alright in my terminal
-      printf(" %s", (piece == -1) ? "·" : unicode_pieces[piece]);
+      printf(" %c", (piece == -1) ? '.' : ascii_pieces[piece]);
 
 
     }
@@ -1114,7 +1125,14 @@ void print_attacked(int side){
 
 // UCI print move
 void print_move(int move){
-  printf("%s%s%c\n", square_to_coord[get_move_source(move)], square_to_coord[get_move_target(move)], promoted_pieces[get_move_promoted(move)]);
+  if (get_move_promoted(move)) {
+    printf("%s%s%c", square_to_coord[get_move_source(move)],
+                   square_to_coord[get_move_target(move)],
+                   promoted_pieces[get_move_promoted(move)]);
+  } else {
+    printf("%s%s", square_to_coord[get_move_source(move)],
+                   square_to_coord[get_move_target(move)]);
+  } 
 }
 
 // print move list with information
@@ -1470,10 +1488,10 @@ void perft_test(int depth){
       continue;
     }
 
-    unsigned long long node_sum = nodes;
+    U64 node_sum = nodes;
 
     perft_driver(depth-1);
-    unsigned long long prev_nodes = nodes - node_sum;
+    U64 prev_nodes = nodes - node_sum;
     take_back();
 
 
@@ -1485,6 +1503,453 @@ void perft_test(int depth){
   unsigned long total_time = get_time_ms() - start;
 
   printf("\n    Depth: %d\n    Nodes: %llu\n     Time: %ld ms\n ", depth, nodes, total_time);
+}
+
+// ------------------------------------------
+// evaluation
+// ------------------------------------------
+
+/* material scoring criteria
+    ♙ =   100   = ♙
+    ♘ =   300   = ♙ * 3
+    ♗ =   350   = ♙ * 3 + ♙ * 0.5
+    ♖ =   500   = ♙ * 5
+    ♕ =   1000  = ♙ * 10
+    ♔ =   10000 = ♙ * 100
+    
+*/
+
+int material_score[12] = {
+    100,      // white pawn score
+    300,      // white knight scrore
+    350,      // white bishop score
+    500,      // white rook score
+   1000,      // white queen score
+  10000,      // white king score
+   -100,      // black pawn score
+   -300,      // black knight scrore
+   -350,      // black bishop score
+   -500,      // black rook score
+  -1000,      // black queen score
+ -10000,      // black king score
+};
+
+// pawn positional score
+const int pawn_score[64] = 
+{
+    90,  90,  90,  90,  90,  90,  90,  90,
+    30,  30,  30,  40,  40,  30,  30,  30,
+    20,  20,  20,  30,  30,  30,  20,  20,
+    10,  10,  10,  20,  20,  10,  10,  10,
+     5,   5,  10,  21,  20,   5,   5,   5,
+     0,   0,   0,   5,   5,   0,   0,   0,
+     0,   0,   0, -10, -10,   0,   0,   0,
+     0,   0,   0,   0,   0,   0,   0,   0
+};
+
+// knight positional score
+const int knight_score[64] = 
+{
+    -5,   0,   0,   0,   0,   0,   0,  -5,
+    -5,   0,   0,  10,  10,   0,   0,  -5,
+    -5,   5,  20,  20,  20,  20,   5,  -5,
+    -5,  10,  20,  30,  30,  20,  10,  -5,
+    -5,  10,  20,  30,  30,  20,  10,  -5,
+    -5,   5,  20,  10,  10,  20,   5,  -5,
+    -5,   0,   0,   0,   0,   0,   0,  -5,
+    -5, -10,   0,   0,   0,   0, -10,  -5
+};
+
+// bishop positional score
+const int bishop_score[64] = 
+{
+     0,   0,   0,   0,   0,   0,   0,   0,
+     0,   0,   0,   0,   0,   0,   0,   0,
+     0,   0,   0,  10,  10,   0,   0,   0,
+     0,   0,  10,  20,  20,  10,   0,   0,
+     0,   0,  10,  20,  20,  10,   0,   0,
+     0,  10,   0,   0,   0,   0,  10,   0,
+     0,  30,   0,   0,   0,   0,  30,   0,
+     0,   0, -10,   0,   0, -10,   0,   0
+
+};
+
+// rook positional score
+const int rook_score[64] =
+{
+    50,  50,  50,  50,  50,  50,  50,  50,
+    50,  50,  50,  50,  50,  50,  50,  50,
+     0,   0,  10,  20,  20,  10,   0,   0,
+     0,   0,  10,  20,  20,  10,   0,   0,
+     0,   0,  10,  20,  20,  10,   0,   0,
+     0,   0,  10,  20,  20,  10,   0,   0,
+     0,   0,  10,  20,  20,  10,   0,   0,
+     0,   0,   0,  20,  20,   0,   0,   0
+
+};
+
+// king positional score
+const int king_score[64] = 
+{
+     0,   0,   0,   0,   0,   0,   0,   0,
+     0,   0,   5,   5,   5,   5,   0,   0,
+     0,   5,   5,  10,  10,   5,   5,   0,
+     0,   5,  10,  20,  20,  10,   5,   0,
+     0,   5,  10,  20,  20,  10,   5,   0,
+     0,   0,   5,  10,  10,   5,   0,   0,
+     0,   5,   5,  -5,  -5,   0,   5,   0,
+     0,   0,   5,   0, -15,   0,  10,   0
+};
+
+// mirror positional score tables for opposite side
+const int mirror_score[128] =
+{
+	a1, b1, c1, d1, e1, f1, g1, h1,
+	a2, b2, c2, d2, e2, f2, g2, h2,
+	a3, b3, c3, d3, e3, f3, g3, h3,
+	a4, b4, c4, d4, e4, f4, g4, h4,
+	a5, b5, c5, d5, e5, f5, g5, h5,
+	a6, b6, c6, d6, e6, f6, g6, h6,
+	a7, b7, c7, d7, e7, f7, g7, h7,
+	a8, b8, c8, d8, e8, f8, g8, h8
+};
+
+static inline int evaluate(){
+  int score = 0;
+  int piece, square;
+  U64 bitboard;
+
+  // loop through pieces on board and sum piece material scores
+  for(int piece_idx = P; piece_idx <= k; piece_idx++){
+    bitboard = bitboards[piece_idx];
+    while(bitboard){
+      piece = piece_idx;
+      square = get_lsb_index(bitboard);
+
+      score += material_score[piece_idx];
+
+      switch(piece){
+        case P: score += pawn_score[square]; break;
+        case N: score += knight_score[square]; break;
+        case B: score += bishop_score[square]; break;
+        case R: score += rook_score[square]; break;
+        case K: score += king_score[square]; break;
+        case p: score -= pawn_score[mirror_score[square]]; break;
+        case n: score -= knight_score[mirror_score[square]]; break;
+        case b: score -= bishop_score[mirror_score[square]]; break;
+        case r: score -= rook_score[mirror_score[square]]; break;
+        case k: score -= king_score[mirror_score[square]]; break;
+      }
+
+      pop_bit(bitboard, square);
+    }
+  }
+  // return evaluation
+  return (side == white) ? score : -score;
+}
+
+
+// ----------------------------------------
+// UCI
+// ----------------------------------------
+
+// return move on movelist that user/engine entered string corresponds to eg. "h7h8q"
+int parse_move(char *move_string){
+  moves move_list[1];
+  generate_moves(move_list);
+
+  int source_sq = (move_string[0] - 'a') + (8-(move_string[1] - '0')) * 8;
+  int target_sq = (move_string[2] - 'a') + (8-(move_string[3] - '0')) * 8;
+
+  // loop over moves to find 
+  for(int i  = 0; i < move_list->count; i++){
+    int move = move_list->moves[i];
+
+    if (source_sq == get_move_source(move) && target_sq == get_move_target(move)){
+
+      // account for possible pawn promotions (recall in uci pawn promotion is always lowercase)
+      int promoted_piece = get_move_promoted(move);
+      if (promoted_piece){
+        if ((promoted_piece == Q || promoted_piece == q) && move_string[4] == 'q'){
+          return move;
+        }
+        else if ((promoted_piece == R || promoted_piece == r) && move_string[4] == 'r'){
+          return move;
+        }
+        else if ((promoted_piece == B || promoted_piece == b) && move_string[4] == 'b'){
+          return move;
+        }
+        else if ((promoted_piece == N || promoted_piece == n) && move_string[4] == 'n'){
+          return move;
+        }
+
+        // cover non legal pawn promotion letters eg. "f7f8m"
+        continue;
+      }
+      return move;
+    }
+  }
+
+  // return illegal move, no move on movelist matched move
+  return 0;
+}
+
+
+/* UCI protocol for "position" command:
+* position [fen  | startpos ]  moves  .... 
+	set up the position described in fenstring on the internal board and
+	play the moves on the internal chess board.
+	if the game was played  from the start position the string "startpos" will be sent
+*/
+void parse_position(char *command){
+  command += 9;
+
+  char *current_char = command;
+
+  // determine if command has "startpos" or "fen" and set board up accordingly
+  if(strncmp(command, "startpos", 8) == 0){
+    parse_fen(start_position);
+  } else {
+    current_char = strstr(command, "fen");
+
+    if(current_char == NULL){
+      parse_fen(start_position);
+    } else {
+      current_char += 4;
+      parse_fen(current_char);
+    }
+  }
+
+  // check if there are additional moves after initial board state
+  current_char = strstr(command, "moves");
+
+  if(current_char != NULL){
+    current_char += 6;
+
+    while(*current_char){
+      int move = parse_move(current_char);
+      if(move == 0){
+        break;
+      }
+
+      make_move(move, all_moves);
+      while(*current_char && *current_char != ' ') current_char++;
+
+      current_char++;
+    }
+  }
+  print_board();
+}
+
+/* UCI protocol for "go" command:
+* go
+	start calculating on the current position set up with the "position" command.
+	There are a number of commands that can follow this command, all will be sent in the same string.
+	If one command is not send its value should be interpreted as it would not influence the search.
+	* searchmoves  .... 
+		restrict search to this moves only
+		Example: After "position startpos" and "go infinite searchmoves e2e4 d2d4"
+		the engine should only search the two moves e2e4 and d2d4 in the initial position.
+	* ponder
+		start searching in pondering mode.
+		Do not exit the search in ponder mode, even if it's mate!
+		This means that the last move sent in in the position string is the ponder move.
+		The engine can do what it wants to do, but after a "ponderhit" command
+		it should execute the suggested move to ponder on. This means that the ponder move sent by
+		the GUI can be interpreted as a recommendation about which move to ponder. However, if the
+		engine decides to ponder on a different move, it should not display any mainlines as they are
+		likely to be misinterpreted by the GUI because the GUI expects the engine to ponder
+	   on the suggested move.
+	* wtime 
+		white has x msec left on the clock
+	* btime 
+		black has x msec left on the clock
+	* winc 
+		white increment per move in mseconds if x > 0
+	* binc 
+		black increment per move in mseconds if x > 0
+	* movestogo 
+      there are x moves to the next time control,
+		this will only be sent if x > 0,
+		if you don't get this and get the wtime and btime it's sudden death
+	* depth 
+		search x plies only.
+	* nodes 
+	   search x nodes only,
+	* mate 
+		search for a mate in x moves
+	* movetime 
+		search exactly x mseconds
+	* infinite
+		search until the "stop" command. Do not exit the search without being told so in this mode!
+*/
+void parse_go(char *command){
+  int depth = -1;
+  char *current_depth = NULL;
+
+  if(current_depth = strstr(command, "depth")){
+    depth = atoi(current_depth + 6);
+  } else{
+    // time controls placeholder
+    depth = 6;
+  }
+
+  search_position(depth);
+
+  print_board();
+}
+
+/* UCI protocol for engine/GUI communication:
+Engine to GUI:
+--------------
+* id
+	* name 
+		this must be sent after receiving the "uci" command to identify the engine,
+		e.g. "id name Shredder X.Y\n"
+	* author 
+		this must be sent after receiving the "uci" command to identify the engine,
+		e.g. "id author Stefan MK\n"
+
+* uciok
+	Must be sent after the id and optional options to tell the GUI that the engine
+	has sent all infos and is ready in uci mode.
+
+* readyok
+	This must be sent when the engine has received an "isready" command and has
+	processed all input and is ready to accept new commands now.
+	It is usually sent after a command that can take some time to be able to wait for the engine,
+	but it can be used anytime, even when the engine is searching,
+	and must always be answered with "isready".
+
+GUI to Engine:
+--------------
+* ucinewgame
+  this is sent to the engine when the next search (started with "position" and "go") will be 
+  from a different game. This can be a new game the engine should play or a new game it 
+  should analyse but also the next position from a testsuite with positions only.
+* quit
+	quit the program as soon as possible
+*/
+void uci_loop(){
+  // flush STDIN & STDOUT buffers
+  setbuf(stdin, NULL);
+  setbuf(stdout, NULL);
+
+  // create large input buffer to handle longer game positions
+  char input[2000];
+
+  while(1){
+    // clear GUI input
+    memset(input, 0, sizeof(input));
+
+    fflush(stdout);
+    if (!fgets(input, 2000, stdin)){
+      continue;
+    }
+
+    if(input[0] == '\n'){
+      continue;
+    }
+
+    else if (strncmp(input, "isready", 7) == 0){
+      printf("readyok");
+      continue;
+    }
+
+    else if (strncmp(input, "position", 8) == 0){
+      parse_position(input);
+    }
+
+    else if (strncmp(input, "ucinewgame", 10) == 0){
+      parse_position("position startpos");
+    }
+
+    else if (strncmp(input, "go", 2) == 0){
+      parse_go(input);
+    }
+
+    else if (strncmp(input, "quit", 4) == 0){
+      break;
+    }
+
+    else if(strncmp(input, "uci", 3) == 0){
+      // engine information
+      printf("id name Rookie\n");
+      printf("id author Matthew Kunkle\n");
+      printf("uciok\n");
+    }
+
+  }
+}
+
+
+// ------------------------------------------
+// search
+// ------------------------------------------
+
+int ply; // ply = half move
+int best_move; // engine move selection
+
+static inline int negamax(int alpha, int beta, int depth){
+  if(depth == 0){
+    return evaluate();
+  }
+
+  nodes++;
+
+  int best_so_far;
+  int old_alpha = alpha;
+
+  moves move_list[1];
+  generate_moves(move_list);
+
+  // loop thru moves like in perftest
+  for(int i = 0; i < move_list->count; i++){
+    copy_board();
+    ply++; // increment ply counter everytime move passes
+
+    // ensure move is legal, take back if illegal
+    if(make_move(move_list->moves[i], all_moves) == 0){
+      ply--;
+      continue;
+    }
+
+    // call recursively, opponent's alpha/beta is our -beta/-alpha
+    int score = -negamax(-beta, -alpha, depth-1);
+
+    // take move back to return board to try next move, decrease ply
+    ply--;
+    take_back();
+
+    // fail-hard beta cutoff
+    if(score >= beta){
+      // node (move) fails high
+      return beta;
+    }
+
+    if(score > alpha){
+      // PV (principal variation) node (move)
+      alpha = score;
+      if(ply == 0){
+        best_so_far = move_list->moves[i];
+      }
+    }
+  }
+
+  if(old_alpha != alpha){
+    best_move = best_so_far;
+  }
+
+  // node (move) fails low
+  return alpha;
+}
+
+void search_position(int depth){
+  int score = negamax(-50000, 50000, depth);
+
+  printf("bestmove ");
+  print_move(best_move);
+  printf("\n");
 }
 
 // ----------------------------------------
@@ -1541,17 +2006,12 @@ void init_sliders_attacks(int bishop){
 // ----------------------------------------
 
 int main(){
-
+  //unsigned long prog_start_time = get_time_ms();
   init_all();
-  parse_fen(tricky_position);
-  
   //parse_fen(start_position);
-      //parse_fen("r3k2r/p1p1qpb1/bn1ppnp1/1B1PN3/1p2P3/2N1Q2p/PPPBBPPP/R3K2R b KQkq - 0 1 ");
-  print_board();
+  uci_loop();
 
-
-  perft_test(4);
-
-  
+  //unsigned long prog_end_time = get_time_ms();
+  //printf("\n\nRuntime: %lu ms\n\n", prog_end_time - prog_start_time);
   return 0;
 }
