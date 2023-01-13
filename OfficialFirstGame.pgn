@@ -1,0 +1,26 @@
+[Event "Computer chess game"]
+[Site "DESKTOP-2SPG64C"]
+[Date "2023.01.13"]
+[Round "?"]
+[White "Matth"]
+[Black "Rookie"]
+[Result "1-0"]
+[BlackElo "2000"]
+[ECO "A40"]
+[Opening "Queen's Pawn"]
+[Time "00:03:34"]
+[Variation "1...e6 2.c4"]
+[WhiteElo "2400"]
+[TimeControl "1800"]
+[Termination "rules infraction"]
+[PlyCount "61"]
+[WhiteType "human"]
+[BlackType "program"]
+
+1. d4 e6 2. c4 Nc6 3. Nc3 Bb4 4. Bf4 g5 5. Be3 d5 6. cxd5 exd5 7. a3 Bxc3+
+8. bxc3 f5 9. Qc1 f4 10. Bd2 Nf6 11. g3 Ne4 12. Bg2 Nxd2 13. Qxd2 fxg3 14.
+fxg3 O-O 15. Nf3 g4 16. Nh4 Kg7 17. O-O-O b5 18. Rhf1 Rxf1 19. Rxf1 Qd6 20.
+Qg5+ Kh8 21. Rf7 Qxa3+ 22. Kd2 Qb2+ 23. Kd3 Qb1+ 24. Kd2 Qb2+ 25. Ke1 Qxc3+
+26. Kf2 Qxd4+ 27. Kf1 Qa1+ 28. Kf2 Qd4+ 29. e3 Qb2+ 30. Kg1 Bb7 31. Ng6
+{Arena Adjudication. Illegal move!} 1-0
+

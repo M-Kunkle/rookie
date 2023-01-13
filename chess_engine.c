@@ -1542,7 +1542,7 @@ const int pawn_score[64] =
     20,  20,  20,  30,  30,  30,  20,  20,
     10,  10,  10,  20,  20,  10,  10,  10,
      5,   5,  10,  21,  20,   5,   5,   5,
-     0,   0,   0,   5,   5,   0,   0,   0,
+     -5,   -5,   -5,   -5,   -5,   -5,   -5,   -5,
      0,   0,   0, -10, -10,   0,   0,   0,
      0,   0,   0,   0,   0,   0,   0,   0
 };
@@ -1569,7 +1569,7 @@ const int bishop_score[64] =
      0,   0,  10,  20,  20,  10,   0,   0,
      0,   0,  10,  20,  20,  10,   0,   0,
      0,  10,   0,   0,   0,   0,  10,   0,
-     0,  30,   0,   0,   0,   0,  30,   0,
+     0,  15,   0,   0,   0,   0,  15,   0,
      0,   0, -10,   0,   0, -10,   0,   0
 
 };
@@ -1597,7 +1597,7 @@ const int king_score[64] =
      0,   5,  10,  20,  20,  10,   5,   0,
      0,   5,  10,  20,  20,  10,   5,   0,
      0,   0,   5,  10,  10,   5,   0,   0,
-     0,   5,   5,  -5,  -5,   0,   5,   0,
+     0,   5,   5,  -10,  -10,   0,   5,   0,
      0,   0,   5,   0, -15,   0,  10,   0
 };
 
@@ -1897,6 +1897,8 @@ static inline int negamax(int alpha, int beta, int depth){
 
   nodes++;
 
+  int legal_moves = 0;
+  int in_check = is_sq_attacked((side == white) ? get_lsb_index(bitboards[K]) : get_lsb_index(bitboards[k]), side ^ 1);
   int best_so_far;
   int old_alpha = alpha;
 
@@ -1913,6 +1915,9 @@ static inline int negamax(int alpha, int beta, int depth){
       ply--;
       continue;
     }
+
+    // add to number of legal moves in position
+    legal_moves++;
 
     // call recursively, opponent's alpha/beta is our -beta/-alpha
     int score = -negamax(-beta, -alpha, depth-1);
@@ -1936,6 +1941,17 @@ static inline int negamax(int alpha, int beta, int depth){
     }
   }
 
+  if (legal_moves == 0){
+
+    if (in_check){
+      // mating score
+      return -49000 + ply;
+    } else { 
+      // stalemate
+      return 0;
+    }
+  }
+
   if(old_alpha != alpha){
     best_move = best_so_far;
   }
@@ -1947,9 +1963,12 @@ static inline int negamax(int alpha, int beta, int depth){
 void search_position(int depth){
   int score = negamax(-50000, 50000, depth);
 
-  printf("bestmove ");
-  print_move(best_move);
-  printf("\n");
+  printf("info score cp %d depth %d nodes %ld\n", score, depth, nodes);
+  if (best_move){
+    printf("bestmove ");
+    print_move(best_move);
+    printf("\n");
+  }
 }
 
 // ----------------------------------------
@@ -2008,7 +2027,14 @@ void init_sliders_attacks(int bishop){
 int main(){
   //unsigned long prog_start_time = get_time_ms();
   init_all();
-  //parse_fen(start_position);
+  //parse_fen("8/8/8/8/4k3/8/3K4/6q1 b - - 9 60 ");
+  //print_board();
+  //moves move_list[1];
+  //generate_moves(move_list);
+  //print_move_list(move_list);
+  //printf("%d\n", evaluate());
+  //search_position(6);
+
   uci_loop();
 
   //unsigned long prog_end_time = get_time_ms();
