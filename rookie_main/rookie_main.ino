@@ -33,8 +33,18 @@
 #define ce 10         // Pin 15 on DM74165
 #define counter93 A0  // Pin 15 on 74LS93
 #define reset93 13    // Pin 2 on 74LS93 -Active HIGH
-#define dplus 2       // USB D+ (Green)
-#define dminus 7      // USB D- (White)
+// #define dplus 2       // USB D+ (Green)
+// #define dminus 7      // USB D- (White)
+
+#define U64 unsigned long long
+
+// ------------------------------------------
+// macros for bit manipulation
+// ------------------------------------------
+#define get_bit(bitboard, square) ((bitboard) & (1ULL << (square)))
+#define set_bit(bitboard, square) ((bitboard) |= (1ULL << (square)))
+#define pop_bit(bitboard, square) ((bitboard) &= ~(1ULL << (square)))
+
 
 
 byte board[8];
@@ -165,7 +175,7 @@ void kill(void) {
 */
 
 void readBoard() {
-  byte bus;
+  byte bus = 0;
   for (int j = 0; j < 8; j++){
     digitalWrite(clockPin, HIGH); //First step here will be to pulse the latch/reset pin while sending a falling clock signal.
     digitalWrite(ce, HIGH);
@@ -182,7 +192,12 @@ void readBoard() {
       delayMicroseconds(5);
       digitalWrite(clockPin, HIGH); //send a clock leading edge so to load the next bit
     } 
+
     board[j] = bus;
+
+    digitalWrite(counter93, LOW);
+    delayMicroseconds(10);
+    digitalWrite(counter93, HIGH);
     
   }
   printBoard();
@@ -194,11 +209,30 @@ void readBoard() {
 
 void printBoard() {
   char output[100];
+  int square;
 
-  for (byte i = 0; i < 8; i++) {
-    sprintf(output, "%d: %02x\n", i, board[i]);
-    Serial.println(output);
+  for (int rank = 0; rank < 8; rank++){
+    for (int file = 0; file < 8; file++){
+      square = rank * 8 + file;
+
+      // print rank number layout
+      if(!file){
+        Serial.print("  ");
+        Serial.print(8 - rank);
+        Serial.print(" ");
+      }
+
+      Serial.print("  ");
+      Serial.print(bitRead(board[rank], file) ? 1 : 0);
+    }
+    Serial.println();
   }
+
+  // print file layout
+  Serial.print("\n      a  b  c  d  e  f  g  h\n\n");
+  //Serial.print("     Bitboard: %llud\n\n", bitboard);
+
+}
   /*
   // New Matrix Stuff
   uint8_t  LEDArray[8];
@@ -215,4 +249,4 @@ void printBoard() {
   }
   myMatrix.writeDisplay();
   */
-}
+

@@ -1,0 +1,25 @@
+[Event "Computer chess game"]
+[Site "DESKTOP-JCLKE5M"]
+[Date "2023.01.13"]
+[Round "?"]
+[White "Matthew"]
+[Black "Chess_engine"]
+[Result "1-0"]
+[BlackElo "2000"]
+[ECO "B02"]
+[Opening "Alekhine Defence"]
+[Time "19:22:26"]
+[WhiteElo "2400"]
+[Termination "normal"]
+[PlyCount "39"]
+[WhiteType "human"]
+[BlackType "program"]
+
+1. e4 Nf6 {+0.31/3} 2. f3 Nc6 {+1.35/3 0} 3. Nc3 e5 {+1.35/3} 4. Bc4 Bb4
+{+1.65/3 0} 5. Nge2 Na5 {+2.65/3 0} 6. d3 Nxc4 {+3.55/3 0} 7. dxc4 O-O
+{+3.55/3 0} 8. Bg5 Bxc3+ {+1.30/3 0} 9. bxc3 Re8 {+0.75/3} 10. O-O c5
+{+0.60/3 0} 11. f4 exf4 {+1.15/3 0} 12. Nxf4 Rxe4 {+1.35/3 0} 13. Nd5 Rxc4
+{+2.05/3 0} 14. Nxf6+ gxf6 {+2.95/3} 15. Bxf6 Qe8 {+1.90/3 0} 16. Qd3 Rg4
+{+1.95/3 0} 17. Rae1 Rxg2+ {+2.00/3 0} 18. Kxg2 Qf8 {-3.20/3 0} 19. Qg3+
+Qg7 {-M500/3 0} 20. Qxg7# 1-0
+
